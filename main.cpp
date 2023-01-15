@@ -9,9 +9,19 @@
 
 #include <benchmark/benchmark.h>
 
+#ifdef ENABLE_AVX_INTRINSICS_TEST
+  #include <immintrin.h>
+#else
+  #ifdef ENABLE_SSE_INTRINSICS_TEST
+    #include <immintrin.h>
+  #endif
+#endif
+
 namespace {
 
     constexpr auto N = 4 * 1024 * 1024;
+
+    constexpr auto SEED = 2754;
 
     std::string genData(auto &randDevice) {
         std::uniform_int_distribution<char> d('a', 'z');
@@ -155,7 +165,7 @@ namespace {
     }
 
     void BM_isUniqueSimple(benchmark::State &state) {
-        std::mt19937 rd(224);
+        std::mt19937 rd(SEED);
         auto s = genData(rd);
         for (auto _: state) {
             benchmark::DoNotOptimize(simpleAlgo(s, simpleCheck));
@@ -165,7 +175,7 @@ namespace {
     BENCHMARK(BM_isUniqueSimple);
 
     void BM_isUniqueSimd(benchmark::State &state) {
-        std::mt19937 rd(224);
+        std::mt19937 rd(SEED);
         auto s = genData(rd);
         for (auto _: state) {
             assert(simpleAlgo(s, simdCheck) == simpleAlgo(s, simpleCheck));
@@ -176,7 +186,7 @@ namespace {
     BENCHMARK(BM_isUniqueSimd);
 
     void BM_isUniqueSimd_vectorAligned(benchmark::State &state) {
-        std::mt19937 rd(224);
+        std::mt19937 rd(SEED);
         auto s = genData(rd);
 
         for (auto _: state) {
@@ -188,7 +198,7 @@ namespace {
     BENCHMARK(BM_isUniqueSimd_vectorAligned);
 
     void BM_isUniqueSimd_overAligned(benchmark::State &state) {
-        std::mt19937 rd(224);
+        std::mt19937 rd(SEED);
         auto s = genData(rd);
 
         for (auto _: state) {
@@ -200,7 +210,7 @@ namespace {
     BENCHMARK(BM_isUniqueSimd_overAligned);
 
     void BM_isUniqueSimd_singleSimd(benchmark::State &state) {
-        std::mt19937 rd(224);
+        std::mt19937 rd(SEED);
         auto s = genData(rd);
 
         for (auto _: state) {
@@ -212,7 +222,7 @@ namespace {
     BENCHMARK(BM_isUniqueSimd_singleSimd);
 
     void BM_isUniqueSimd_singleSimd_loopUnrolled(benchmark::State &state) {
-        std::mt19937 rd(224);
+        std::mt19937 rd(SEED);
         auto s = genData(rd);
 
         for (auto _: state) {
@@ -222,6 +232,53 @@ namespace {
     }
 
     BENCHMARK(BM_isUniqueSimd_singleSimd_loopUnrolled);
+
+#ifdef ENABLE_AVX_INTRINSICS_TEST
+  bool simdCheckIntrinsicsAVX(ArrayT const& s) {
+    auto V1 = _mm256_loadu_si256(reinterpret_cast<__m256i_u const*>(s.data()));
+    uint32_t Mask = 0x01010101;
+    auto MaskV = _mm256_broadcastd_epi32(_mm_loadu_si32(&Mask));
+    auto Result =  !!_mm256_testc_si256(MaskV, V1);
+
+    assert(Result == simpleCheck(s));
+    return Result;
+  }
+
+  void BM_isUniqueSimd_avx256_intrinsics(benchmark::State &state) {
+    std::mt19937 rd(SEED);
+    auto s = genData(rd);
+    for (auto _: state) {
+      benchmark::DoNotOptimize(simpleAlgo(s, simdCheckIntrinsicsAVX));
+    }
+  }
+
+  BENCHMARK(BM_isUniqueSimd_avx256_intrinsics);
+#endif
+
+#ifdef ENABLE_SSE_INTRINSICS_TEST
+  bool simdCheckIntrinsicsSSE(ArrayT const& s) {
+    auto V1 = _mm_load_si128(reinterpret_cast<__m128i const*>(s.data()));
+    uint32_t Mask = 0x01010101;
+    auto MaskV = _mm_broadcastd_epi32(_mm_loadu_si32(&Mask));
+    auto Result =  !!_mm_testc_si128(MaskV, V1);
+
+    V1 = _mm_load_si128(reinterpret_cast<__m128i const*>(s.data() + 16));
+    Result &= !!_mm_testc_si128(MaskV, V1);
+
+    assert(Result == simpleCheck(s));
+    return Result;
+  }
+
+  void BM_isUniqueSimd_sse_intrinsics(benchmark::State &state) {
+    std::mt19937 rd(SEED);
+    auto s = genData(rd);
+    for (auto _: state) {
+      benchmark::DoNotOptimize(simpleAlgo(s, simdCheckIntrinsicsSSE));
+    }
+  }
+
+  BENCHMARK(BM_isUniqueSimd_sse_intrinsics);
+#endif
 }
 
 BENCHMARK_MAIN();
