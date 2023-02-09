@@ -5,14 +5,16 @@ Consider using `vcpkg install benchmark` to run.
 
 ## Mac air m2 (128-bit NEON)
 
-| Benchmark                               | Time    | CPU     | Iterations |
-|-----------------------------------------|---------|---------|------------|
-| BM_isUniqueSimple                       | 2824 ns | 2824 ns | 237633     |
-| BM_isUniqueSimd                         | 1337 ns | 1336 ns | 523353     |
-| BM_isUniqueSimd_vectorAligned           | 1328 ns | 1328 ns | 522454     |
-| BM_isUniqueSimd_overAligned             | 1276 ns | 1276 ns | 547598     |
-| BM_isUniqueSimd_singleSimd              | 1926 ns | 1919 ns | 368998     |
-| BM_isUniqueSimd_singleSimd_loopUnrolled | 1742 ns | 1742 ns | 402762     |
+| Benchmark                               | Time   | CPU    | Iterations | UserCounters... | 
+|-----------------------------------------|--------|--------|------------|-----------------|
+| BM_isUniqueSimple                       | 771 ns | 771 ns | 906513     | 128.674M/s      |
+| BM_isUniqueSimd                         | 397 ns | 387 ns | 1853534    | 256.342M/s      |
+| BM_isUniqueSimd_vectorAligned           | 376 ns | 376 ns | 1813871    | 263.576M/s      |
+| BM_isUniqueSimd_overAligned             | 370 ns | 370 ns | 1892608    | 268.219M/s      |
+| BM_isUniqueSimd_singleSimd              | 581 ns | 581 ns | 1205400    | 170.794M/s      |
+| BM_isUniqueSimd_singleSimd_loopUnrolled | 522 ns | 522 ns | 1337460    | 189.974M/s      |
+| BM_isUniqueSimd_neon_intrinsics         | 188 ns | 188 ns | 3715085    | 526.189M/s      |
+
 
 ## Dell xps 9980hk
 
