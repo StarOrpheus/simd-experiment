@@ -14,6 +14,7 @@ Consider using `vcpkg install benchmark` to run.
 | BM_isUniqueSimd_singleSimd              | 581 ns | 581 ns | 1205400    | 170.794M/s      |
 | BM_isUniqueSimd_singleSimd_loopUnrolled | 522 ns | 522 ns | 1337460    | 189.974M/s      |
 | BM_isUniqueSimd_neon_intrinsics         | 188 ns | 188 ns | 3715085    | 526.189M/s      |
+| BM_isUniqueSimd_simde_avx2              | 192 ns | 192 ns | 3650530    | 517.113M/s      |
 
 
 ## Dell xps 9980hk

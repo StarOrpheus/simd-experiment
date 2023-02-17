@@ -24,9 +24,14 @@
 #include <arm_neon.h>
 #endif
 
+#include "simde/x86/avx2.h"
+#include "simde/x86/sse4.2.h"
+
 namespace {
 
 constexpr auto N = 4 * 1024 * 1024;
+
+constexpr auto BATCH = 14;
 
 constexpr auto SEED = 2754;
 
@@ -75,20 +80,20 @@ bool simdCheckOverAligned(ArrayT const &s) {
 
 template <typename CheckT>
 unsigned simpleAlgo(std::string const &s, CheckT &&check) {
-  if (s.size() < 14)
+  if (s.size() < BATCH)
     return s.size() + 1;
   alignas(32) std::array<uint8_t, 32> sum{};
   std::fill(std::begin(sum), std::end(sum), 0);
-  for (size_t i = 0; i < 14; ++i)
+  for (size_t i = 0; i < BATCH; ++i)
     sum[s[i] - 'a']++;
   if (check(sum))
     return 0;
 
-  for (size_t i = 14; i < s.size(); ++i) {
+  for (size_t i = BATCH; i < s.size(); ++i) {
     sum[s[i] - 'a']++;
-    sum[s[i - 14] - 'a']--;
+    sum[s[i - BATCH] - 'a']--;
     if (check(sum)) {
-      return i - 14;
+      return i - BATCH;
     }
   }
   return 0;
@@ -100,7 +105,7 @@ unsigned simdAlgo(std::string const &s) {
   for (size_t i = 0; i < vu.size(); ++i)
     vu[i] = 0;
 
-  for (size_t i = 0; i < 14; ++i)
+  for (size_t i = 0; i < BATCH; ++i)
     vu[s[i] - 'a']++;
 
   bool ok = true;
@@ -110,9 +115,9 @@ unsigned simdAlgo(std::string const &s) {
   if (ok)
     return 0;
 
-  for (size_t i = 14; i < s.size(); ++i) {
+  for (size_t i = BATCH; i < s.size(); ++i) {
     vu[s[i] - 'a']++;
-    vu[s[i - 14] - 'a']--;
+    vu[s[i - BATCH] - 'a']--;
 
     ok = true;
     for (size_t j = 0; j < vu.size() && ok; ++j)
@@ -120,7 +125,7 @@ unsigned simdAlgo(std::string const &s) {
         ok = false;
 
     if (ok)
-      return i - 14;
+      return i - BATCH;
   }
 
   return 0;
@@ -132,7 +137,7 @@ unsigned simdAlgoUnrolled(std::string const &s) {
   for (size_t i = 0; i < vu.size(); ++i)
     vu[i] = 0;
 
-  for (size_t i = 0; i < 14; ++i)
+  for (size_t i = 0; i < BATCH; ++i)
     vu[s[i] - 'a']++;
 
   bool ok = true;
@@ -144,15 +149,15 @@ unsigned simdAlgoUnrolled(std::string const &s) {
 
 #define singleStep(m)                                                          \
   vu[s[i + (m)] - 'a']++;                                                      \
-  vu[s[i + (m)-14] - 'a']--;                                                   \
+  vu[s[i + (m)-BATCH] - 'a']--;                                                   \
   ok = true;                                                                   \
   for (size_t j = 0; j < vu.size() && ok; ++j)                                 \
     if ((vu[j] & 0xfe) != 0)                                                   \
       ok = false;                                                              \
   if (ok)                                                                      \
-    return i + (m)-14;
+    return i + (m)-BATCH;
 
-  for (size_t i = 14; i + 7 < s.size(); i += 8) {
+  for (size_t i = BATCH; i + 7 < s.size(); i += 8) {
     singleStep(0) singleStep(1) singleStep(2) singleStep(3) singleStep(4)
         singleStep(5) singleStep(6) singleStep(7)
   }
@@ -322,6 +327,30 @@ void BM_isUniqueSimd_neon_intrinsics(benchmark::State &state) {
 }
 
 BENCHMARK(BM_isUniqueSimd_neon_intrinsics);
+
+
+bool simdCheckSimdeAvx2(ArrayT const &s) {
+  auto V1 = simde_mm256_loadu_si256(
+      reinterpret_cast<simde__m256i const *>(s.data()));
+  uint32_t Mask = 0x01010101;
+  auto MaskV = simde_mm256_broadcastd_epi32(simde_mm_loadu_si32(&Mask));
+  auto Result = !!simde_mm256_testc_si256(MaskV, V1);
+
+  assert(Result == simpleCheck(s));
+  return Result;
+}
+
+void BM_isUniqueSimd_simde_avx2(benchmark::State &state) {
+  std::mt19937 rd(SEED);
+  auto s = genData(rd);
+  unsigned R = 0;
+  for (auto _ : state) {
+    benchmark::DoNotOptimize(R = simpleAlgo(s, simdCheckSimdeAvx2));
+  }
+  state.SetBytesProcessed(R * state.iterations());
+}
+
+BENCHMARK(BM_isUniqueSimd_simde_avx2);
 
 #endif
 
