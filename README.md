@@ -3,7 +3,7 @@
 Task: for string S find first position, so next 14 symbols from this position in string S are **unique**.
 Consider using `vcpkg install benchmark` to run.
 
-## Mac air m2 (128-bit NEON)
+## Apple MacBook Air 2022 m2 (128-bit NEON)
 
 | Benchmark                               | Time   | CPU    | Iterations | UserCounters... | 
 |-----------------------------------------|--------|--------|------------|-----------------|
@@ -16,6 +16,18 @@ Consider using `vcpkg install benchmark` to run.
 | BM_isUniqueSimd_neon_intrinsics         | 188 ns | 188 ns | 3715085    | 526.189M/s      |
 | BM_isUniqueSimd_simde_avx2              | 192 ns | 192 ns | 3650530    | 517.113M/s      |
 
+## Apple MacBook Pro 14" M1 Pro 8C CPU, 14C GPU (128-bit NEON)
+
+| Benchmark                               | Time   | CPU    | Iterations | UserCounters... |
+|------------------------------------------------------------------------------------------|
+| BM_isUniqueSimple                       | 749 ns | 749 ns | 928271     | 132.451M/s      |
+| BM_isUniqueSimd                         | 416 ns | 416 ns | 1684162    | 238.67M/s       |
+| BM_isUniqueSimd_vectorAligned           | 416 ns | 416 ns | 1684527    | 238.672M/s      |
+| BM_isUniqueSimd_overAligned             | 404 ns | 404 ns | 1732099    | 245.449M/s      |
+| BM_isUniqueSimd_singleSimd              | 563 ns | 563 ns | 1251363    | 176.258M/s      |
+| BM_isUniqueSimd_singleSimd_loopUnrolled | 500 ns | 500 ns | 1400451    | 198.561M/s      |
+| BM_isUniqueSimd_neon_intrinsics         | 226 ns | 226 ns | 3108058    | 439.404M/s      |
+| BM_isUniqueSimd_simde_avx2              | 218 ns | 218 ns | 3216040    | 455.573M/s      |
 
 ## Dell xps 9980hk
 
