@@ -36,7 +36,7 @@ constexpr auto BATCH = 14;
 constexpr auto SEED = 2754;
 
 std::string genData(auto &randDevice) {
-  std::uniform_int_distribution<char> d('a', 'z');
+  std::uniform_int_distribution<uint8_t> d('a', 'z');
   std::string r;
   r.reserve(N);
   for (size_t i = 0; i < N; ++i)
@@ -328,30 +328,30 @@ void BM_isUniqueSimd_neon_intrinsics(benchmark::State &state) {
 
 BENCHMARK(BM_isUniqueSimd_neon_intrinsics);
 
-
-bool simdCheckSimdeAvx2(ArrayT const &s) {
-  auto V1 = simde_mm256_loadu_si256(
-      reinterpret_cast<simde__m256i const *>(s.data()));
-  uint32_t Mask = 0x01010101;
-  auto MaskV = simde_mm256_broadcastd_epi32(simde_mm_loadu_si32(&Mask));
-  auto Result = !!simde_mm256_testc_si256(MaskV, V1);
-
-  assert(Result == simpleCheck(s));
-  return Result;
-}
-
-void BM_isUniqueSimd_simde_avx2(benchmark::State &state) {
-  std::mt19937 rd(SEED);
-  auto s = genData(rd);
-  unsigned R = 0;
-  for (auto _ : state) {
-    benchmark::DoNotOptimize(R = simpleAlgo(s, simdCheckSimdeAvx2));
-  }
-  state.SetBytesProcessed(R * state.iterations());
-}
-
-BENCHMARK(BM_isUniqueSimd_simde_avx2);
-
 #endif
+
+
+  bool simdCheckSimdeAvx2(ArrayT const &s) {
+    auto V1 = simde_mm256_loadu_si256(
+      reinterpret_cast<simde__m256i const *>(s.data()));
+    uint32_t Mask = 0x01010101;
+    auto MaskV = simde_mm256_broadcastd_epi32(simde_mm_loadu_si32(&Mask));
+    auto Result = !!simde_mm256_testc_si256(MaskV, V1);
+
+    assert(Result == simpleCheck(s));
+    return Result;
+  }
+
+  void BM_isUniqueSimd_simde_avx2(benchmark::State &state) {
+    std::mt19937 rd(SEED);
+    auto s = genData(rd);
+    unsigned R = 0;
+    for (auto _ : state) {
+      benchmark::DoNotOptimize(R = simpleAlgo(s, simdCheckSimdeAvx2));
+    }
+    state.SetBytesProcessed(R * state.iterations());
+  }
+
+  BENCHMARK(BM_isUniqueSimd_simde_avx2);
 
 } // namespace
