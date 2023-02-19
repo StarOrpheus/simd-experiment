@@ -1,7 +1,0 @@
-{
-  "name": "experimental-simd-benchmark",
-  "version-string": "1.0",
-  "dependencies": [
-    "benchmark"
-  ]
-}
