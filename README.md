@@ -18,6 +18,20 @@ Task: for string S find first position, so next 14 symbols from this position in
 | BM_isUniqueSimd_sse_intrinsics          | 635244 ns | 634152 ns | 1029       | 197.093M/s      |
 | BM_isUniqueSimd_simde_avx2              | 696675 ns | 695728 ns | 984        | 179.649M/s      |
 
+#### clang + libc++ with PGO & LTO
+
+| Benchmark                               | Time      | CPU       | Iterations | UserCounters... |
+|-----------------------------------------|-----------|-----------|------------|-----------------|
+| BM_isUniqueSimple                       | 654181 ns | 653163 ns | 1147       | 191.356M/s      |
+| BM_isUniqueSimd                         | 669992 ns | 668978 ns | 1051       | 186.832M/s      |
+| BM_isUniqueSimd_vectorAligned           | 704174 ns | 703034 ns | 951        | 177.782M/s      |
+| BM_isUniqueSimd_overAligned             | 663965 ns | 662862 ns | 1078       | 188.556M/s      |
+| BM_isUniqueSimd_singleSimd              | 698118 ns | 697639 ns | 965        | 179.157M/s      |
+| BM_isUniqueSimd_singleSimd_loopUnrolled | 527081 ns | 526851 ns | 1279       | 237.234M/s      |
+| BM_isUniqueSimd_avx256_intrinsics       | 663761 ns | 663269 ns | 1010       | 188.44M/s       |
+| BM_isUniqueSimd_sse_intrinsics          | 630535 ns | 630210 ns | 1047       | 198.325M/s      |
+| BM_isUniqueSimd_simde_avx2              | 653591 ns | 653262 ns | 1000       | 191.327M/s      |
+
 #### GCC + stdlibc++
 
 | Benchmark                               | Time       | CPU        | Iterations | UserCounters... |
@@ -58,3 +72,33 @@ Task: for string S find first position, so next 14 symbols from this position in
 | BM_isUniqueSimd_singleSimd_loopUnrolled | 793748 ns | 793662 ns | 878        | 157.481M/s      |
 | BM_isUniqueSimd_neon_intrinsics         | 263453 ns | 263444 ns | 2657       | 474.433M/s      |
 | BM_isUniqueSimd_simde_avx2              | 262107 ns | 262071 ns | 2667       | 476.919M/s      |
+
+## 5950x
+
+#### GCC + stdlibc++
+
+| Benchmark                               | Time       | CPU        | Iterations | UserCounters... |
+|-----------------------------------------|------------|------------|------------|-----------------|
+| BM_isUniqueSimple                       | 1458237 ns | 1458175 ns | 482        | 85.7144M/s      |
+| BM_isUniqueSimd                         | 1102816 ns | 1102793 ns | 652        | 113.336M/s      |
+| BM_isUniqueSimd_vectorAligned           | 1107866 ns | 1107850 ns | 630        | 112.819M/s      |
+| BM_isUniqueSimd_overAligned             | 1080201 ns | 1080188 ns | 648        | 115.708M/s      |
+| BM_isUniqueSimd_singleSimd              | 673325 ns  | 673320 ns  | 1026       | 185.627M/s      |
+| BM_isUniqueSimd_singleSimd_loopUnrolled | 1366174 ns | 1366153 ns | 515        | 91.488M/s       |
+| BM_isUniqueSimd_avx256_intrinsics       | 761587 ns  | 761574 ns  | 916        | 164.116M/s      |
+| BM_isUniqueSimd_sse_intrinsics          | 845782 ns  | 845762 ns  | 827        | 147.78M/s       |
+| BM_isUniqueSimd_simde_avx2              | 763712 ns  | 763692 ns  | 915        | 163.661M/s      |
+
+#### clang + libc++
+
+| Benchmark                               | Time       | CPU        | Iterations | UserCounters... |
+|-----------------------------------------|------------|------------|------------|-----------------|
+| BM_isUniqueSimple                       | 494705 ns  | 494701 ns  | 1347       | 252.651M/s      |
+| BM_isUniqueSimd                         | 988379 ns  | 988366 ns  | 708        | 126.458M/s      |
+| BM_isUniqueSimd_vectorAligned           | 1008420 ns | 1008401 ns | 708        | 123.945M/s      |
+| BM_isUniqueSimd_overAligned             | 1034570 ns | 1034558 ns | 676        | 120.812M/s      |
+| BM_isUniqueSimd_singleSimd              | 512789 ns  | 512781 ns  | 1365       | 243.743M/s      |
+| BM_isUniqueSimd_singleSimd_loopUnrolled | 822544 ns  | 822531 ns  | 849        | 151.954M/s      |
+| BM_isUniqueSimd_avx256_intrinsics       | 945362 ns  | 945347 ns  | 740        | 132.212M/s      |
+| BM_isUniqueSimd_sse_intrinsics          | 978315 ns  | 978286 ns  | 714        | 127.761M/s      |
+| BM_isUniqueSimd_simde_avx2              | 945276 ns  | 945253 ns  | 740        | 132.226M/s      |
