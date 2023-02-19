@@ -44,3 +44,17 @@ Task: for string S find first position, so next 14 symbols from this position in
 | BM_isUniqueSimd_avx256_intrinsics       | 711045 ns  | 710259 ns  | 944        | 175.973M/s      |
 | BM_isUniqueSimd_sse_intrinsics          | 841723 ns  | 840965 ns  | 781        | 148.623M/s      |
 | BM_isUniqueSimd_simde_avx2              | 703181 ns  | 702370 ns  | 909        | 177.95M/s       |
+
+
+## Apple Macbook air 2022 m2
+
+| Benchmark                               | Time      | CPU       | Iterations | UserCounters... |
+|-----------------------------------------|-----------|-----------|------------|-----------------|
+| BM_isUniqueSimple                       | 735419 ns | 735426 ns | 721        | 169.951M/s      |
+| BM_isUniqueSimd                         | 531041 ns | 531022 ns | 1313       | 235.37M/s       |
+| BM_isUniqueSimd_vectorAligned           | 533283 ns | 533273 ns | 1308       | 234.377M/s      |
+| BM_isUniqueSimd_overAligned             | 531557 ns | 531552 ns | 1316       | 235.135M/s      |
+| BM_isUniqueSimd_singleSimd              | 537060 ns | 537050 ns | 1309       | 232.728M/s      |
+| BM_isUniqueSimd_singleSimd_loopUnrolled | 745713 ns | 745706 ns | 938        | 167.609M/s      |
+| BM_isUniqueSimd_neon_intrinsics         | 213495 ns | 213489 ns | 3269       | 585.448M/s      |
+| BM_isUniqueSimd_simde_avx2              | 215076 ns | 215071 ns | 3252       | 581.141M/s      |
