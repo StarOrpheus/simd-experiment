@@ -1,11 +1,17 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <fstream>
 #include <iostream>
+#include <optional>
 #include <random>
 #include <string>
 
+#include "commons.h"
+
+#ifndef WIN32
 #include <experimental/simd>
+#endif
 
 #include <benchmark/benchmark.h>
 
@@ -29,28 +35,25 @@
 
 namespace {
 
-constexpr auto N = 4 * 1024 * 1024;
+std::optional<std::string> loadData() {
+  std::ifstream in;
+  in.exceptions(std::ifstream::badbit | std::ifstream::failbit);
+  std::string R;
+  R.resize(N);
+  try {
+    in.open("result.txt");
+    in.read(R.data(), N + 1); // 1 for \0
+  } catch (std::exception const &e) {
+    std::cerr << "Exception: " << e.what() << std::endl;
+  }
 
-constexpr auto BATCH = 14;
+  if (R.size() == N)
+    return {std::move(R)};
 
-constexpr auto SEED = 2754;
-
-std::string genData(auto &randDevice) {
-  std::uniform_int_distribution<uint8_t> d('a', 'z');
-  std::string r;
-  r.reserve(N);
-  for (size_t i = 0; i < N; ++i)
-    r += d(randDevice);
-  return r;
+  return std::nullopt;
 }
 
-using ArrayT = std::array<uint8_t, 32>;
-
-bool simpleCheck(ArrayT const &s) {
-  return std::all_of(s.begin(), s.end(),
-                     [](auto x) { return (x & 0xfe) == 0; });
-}
-
+#ifndef WIN32
 bool simdCheckO(ArrayT const &s, auto &&flag) {
   std::experimental::fixed_size_simd<uint8_t, 32> values;
   values.copy_from(s.data(), flag);
@@ -77,28 +80,24 @@ bool simdCheckVectorAligned(ArrayT const &s) {
 bool simdCheckOverAligned(ArrayT const &s) {
   return simdCheckO(s, std::experimental::overaligned<32>);
 }
+#endif
 
-template <typename CheckT>
-unsigned simpleAlgo(std::string const &s, CheckT &&check) {
-  if (s.size() < BATCH)
-    return s.size() + 1;
-  alignas(32) std::array<uint8_t, 32> sum{};
-  std::fill(std::begin(sum), std::end(sum), 0);
-  for (size_t i = 0; i < BATCH; ++i)
-    sum[s[i] - 'a']++;
-  if (check(sum))
-    return 0;
-
-  for (size_t i = BATCH; i < s.size(); ++i) {
-    sum[s[i] - 'a']++;
-    sum[s[i - BATCH] - 'a']--;
-    if (check(sum)) {
-      return i - BATCH;
-    }
+template <typename F> void doBenchmark(benchmark::State &state, F &&func) {
+  auto s = loadData();
+  if (!s) {
+    state.SetLabel("NO DATA");
+    return;
   }
-  return 0;
+  auto &str = *s;
+  unsigned R = 0xfefefefe;
+  for (auto _ : state) {
+    benchmark::DoNotOptimize(R = func(str));
+  }
+  assert(R == simpleAlgo(str, simpleCheck));
+  state.SetBytesProcessed(R * state.iterations());
 }
 
+#ifndef WIN32
 unsigned simdAlgo(std::string const &s) {
   std::experimental::fixed_size_simd<uint8_t, 26> vu;
 
@@ -113,7 +112,7 @@ unsigned simdAlgo(std::string const &s) {
     if ((vu[i] & 0xfe) != 0)
       ok = false;
   if (ok)
-    return 0;
+    return s.size() + 1;
 
   for (size_t i = BATCH; i < s.size(); ++i) {
     vu[s[i] - 'a']++;
@@ -125,14 +124,17 @@ unsigned simdAlgo(std::string const &s) {
         ok = false;
 
     if (ok)
-      return i - BATCH;
+      return i - BATCH + 1;
   }
 
-  return 0;
+  return s.size() + 1;
 }
 
 unsigned simdAlgoUnrolled(std::string const &s) {
   std::experimental::fixed_size_simd<uint8_t, 26> vu;
+
+  if (s.size() < BATCH)
+    return s.size() + 1;
 
   for (size_t i = 0; i < vu.size(); ++i)
     vu[i] = 0;
@@ -148,110 +150,94 @@ unsigned simdAlgoUnrolled(std::string const &s) {
     return 0;
 
 #define singleStep(m)                                                          \
-  vu[s[i + (m)] - 'a']++;                                                      \
-  vu[s[i + (m)-BATCH] - 'a']--;                                                   \
-  ok = true;                                                                   \
-  for (size_t j = 0; j < vu.size() && ok; ++j)                                 \
-    if ((vu[j] & 0xfe) != 0)                                                   \
-      ok = false;                                                              \
-  if (ok)                                                                      \
-    return i + (m)-BATCH;
+  do {                                                                         \
+    vu[s[i + m] - 'a']++;                                                      \
+    vu[s[i + m - BATCH] - 'a']--;                                              \
+    ok = true;                                                                 \
+    for (size_t j = 0; j < vu.size(); ++j)                                     \
+      if ((vu[j] & 0xfe) != 0)                                                 \
+        ok = false;                                                            \
+    if (ok)                                                                    \
+      return i + m - BATCH + 1;                                                \
+  } while (false)
 
+  unsigned last = 0;
   for (size_t i = BATCH; i + 7 < s.size(); i += 8) {
-    singleStep(0) singleStep(1) singleStep(2) singleStep(3) singleStep(4)
-        singleStep(5) singleStep(6) singleStep(7)
+    singleStep(0);
+    singleStep(1);
+    singleStep(2);
+    singleStep(3);
+    singleStep(4);
+    singleStep(5);
+    singleStep(6);
+    singleStep(7);
+    last = i + 7;
   }
 
-  for (size_t i = s.size() - (s.size() % 4); i < s.size(); ++i) {
-    singleStep(0)
+  for (size_t i = last + 1; i < s.size(); ++i) {
+    singleStep(0);
   }
 #undef singleStep
 
-  return 0;
+  return s.size() + 1;
 }
+#endif
 
 void BM_isUniqueSimple(benchmark::State &state) {
-  std::mt19937 rd(SEED);
-  auto s = genData(rd);
-  unsigned R = 0;
-  for (auto _ : state) {
-    benchmark::DoNotOptimize(R = simpleAlgo(s, simpleCheck));
-  }
-  state.SetBytesProcessed(R * state.iterations());
+  doBenchmark(state, [](std::string const &str) {
+    return simpleAlgo(str, simpleCheck);
+  });
 }
 
 BENCHMARK(BM_isUniqueSimple);
 
+#ifndef WIN32
 void BM_isUniqueSimd(benchmark::State &state) {
-  std::mt19937 rd(SEED);
-  auto s = genData(rd);
-  unsigned R = 0;
-  for (auto _ : state) {
-    benchmark::DoNotOptimize(R = simpleAlgo(s, simdCheck));
-  }
-  assert(R == simpleAlgo(s, simpleCheck));
-  state.SetBytesProcessed(R * state.iterations());
+  doBenchmark(
+      state, [](std::string const &str) { return simpleAlgo(str, simdCheck); });
 }
 
 BENCHMARK(BM_isUniqueSimd);
 
 void BM_isUniqueSimd_vectorAligned(benchmark::State &state) {
-  std::mt19937 rd(SEED);
-  auto s = genData(rd);
-  unsigned R = 0;
-  for (auto _ : state) {
-    benchmark::DoNotOptimize(R = simpleAlgo(s, simdCheckVectorAligned));
-  }
-  assert(R == simpleAlgo(s, simpleCheck));
-  state.SetBytesProcessed(R * state.iterations());
+  doBenchmark(state, [](std::string const &str) {
+    return simpleAlgo(str, simdCheckVectorAligned);
+  });
 }
 
 BENCHMARK(BM_isUniqueSimd_vectorAligned);
 
 void BM_isUniqueSimd_overAligned(benchmark::State &state) {
-  std::mt19937 rd(SEED);
-  auto s = genData(rd);
-  unsigned R = 0;
-  for (auto _ : state) {
-    benchmark::DoNotOptimize(R = simpleAlgo(s, simdCheckOverAligned));
-  }
-  assert(R == simpleAlgo(s, simpleCheck));
-  state.SetBytesProcessed(R * state.iterations());
+  doBenchmark(state, [](std::string const &str) {
+    return simpleAlgo(str, simdCheckOverAligned);
+  });
 }
 
 BENCHMARK(BM_isUniqueSimd_overAligned);
 
 void BM_isUniqueSimd_singleSimd(benchmark::State &state) {
-  std::mt19937 rd(SEED);
-  auto s = genData(rd);
-  unsigned R = 0;
-  for (auto _ : state) {
-    benchmark::DoNotOptimize(R = simdAlgo(s));
-  }
-  assert(R == simpleAlgo(s, simpleCheck));
-  state.SetBytesProcessed(R * state.iterations());
+  doBenchmark(state, [](std::string const &str) { return simdAlgo(str); });
 }
 
 BENCHMARK(BM_isUniqueSimd_singleSimd);
 
 void BM_isUniqueSimd_singleSimd_loopUnrolled(benchmark::State &state) {
-  std::mt19937 rd(SEED);
-  auto s = genData(rd);
-  unsigned R = 0;
-  for (auto _ : state) {
-    benchmark::DoNotOptimize(R = simdAlgoUnrolled(s));
-  }
-  assert(R == simpleAlgo(s, simpleCheck));
-  state.SetBytesProcessed(R * state.iterations());
+  doBenchmark(state,
+              [](std::string const &str) { return simdAlgoUnrolled(str); });
 }
 
 BENCHMARK(BM_isUniqueSimd_singleSimd_loopUnrolled);
 
+#endif
+
 #ifdef ENABLE_AVX_INTRINSICS_TEST
 bool simdCheckIntrinsicsAVX(ArrayT const &s) {
-  auto V1 = _mm256_loadu_si256(reinterpret_cast<__m256i_u const *>(s.data()));
-  uint32_t Mask = 0x01010101;
-  auto MaskV = _mm256_broadcastd_epi32(_mm_loadu_si32(&Mask));
+  alignas(32) constexpr static uint64_t Mask[] = {
+      0x0101010101010101, 0x0101010101010101, 0x0101010101010101,
+      0x0101010101010101};
+
+  auto V1 = _mm256_load_si256(reinterpret_cast<const __m256i *>(s.data()));
+  auto MaskV = _mm256_load_si256(reinterpret_cast<const __m256i *>(Mask));
   auto Result = !!_mm256_testc_si256(MaskV, V1);
 
   assert(Result == simpleCheck(s));
@@ -259,13 +245,9 @@ bool simdCheckIntrinsicsAVX(ArrayT const &s) {
 }
 
 void BM_isUniqueSimd_avx256_intrinsics(benchmark::State &state) {
-  std::mt19937 rd(SEED);
-  auto s = genData(rd);
-  unsigned R = 0;
-  for (auto _ : state) {
-    benchmark::DoNotOptimize(R = simpleAlgo(s, simdCheckIntrinsicsAVX));
-  }
-  state.SetBytesProcessed(R * state.iterations());
+  doBenchmark(state, [](auto &&str) {
+    return simpleAlgo(str, simdCheckIntrinsicsAVX);
+  });
 }
 
 BENCHMARK(BM_isUniqueSimd_avx256_intrinsics);
@@ -273,9 +255,11 @@ BENCHMARK(BM_isUniqueSimd_avx256_intrinsics);
 
 #ifdef ENABLE_SSE_INTRINSICS_TEST
 bool simdCheckIntrinsicsSSE(ArrayT const &s) {
+  alignas(16) constexpr static uint64_t Mask[] = {0x0101010101010101,
+                                                  0x0101010101010101};
+
   auto V1 = _mm_load_si128(reinterpret_cast<__m128i const *>(s.data()));
-  uint32_t Mask = 0x01010101;
-  auto MaskV = _mm_broadcastd_epi32(_mm_loadu_si32(&Mask));
+  auto MaskV = _mm_load_si128(reinterpret_cast<const __m128i *>(Mask));
   auto Result = !!_mm_testc_si128(MaskV, V1);
 
   V1 = _mm_load_si128(reinterpret_cast<__m128i const *>(s.data() + 16));
@@ -286,13 +270,9 @@ bool simdCheckIntrinsicsSSE(ArrayT const &s) {
 }
 
 void BM_isUniqueSimd_sse_intrinsics(benchmark::State &state) {
-  std::mt19937 rd(SEED);
-  auto s = genData(rd);
-  unsigned R = 0;
-  for (auto _ : state) {
-    benchmark::DoNotOptimize(R = simpleAlgo(s, simdCheckIntrinsicsSSE));
-  }
-  state.SetBytesProcessed(R * state.iterations());
+  doBenchmark(state, [](auto &&str) {
+    return simpleAlgo(str, simdCheckIntrinsicsSSE);
+  });
 }
 
 BENCHMARK(BM_isUniqueSimd_sse_intrinsics);
@@ -309,7 +289,7 @@ bool simdCheckIntrinsicsNeon(ArrayT const &s) {
   y = vld1q_dup_u8(&Mask);
   x = vandq_u8(x, y);
 
-  auto v =  vreinterpret_u32_u8(vorr_u8(vget_low_u8(x), vget_high_u8(x)));
+  auto v = vreinterpret_u32_u8(vorr_u8(vget_low_u8(x), vget_high_u8(x)));
   auto R = vget_lane_u32(vpmax_u32(v, v), 0) == 0;
   assert(R == simpleCheck(s));
   return R;
@@ -322,7 +302,7 @@ void BM_isUniqueSimd_neon_intrinsics(benchmark::State &state) {
   for (auto _ : state) {
     benchmark::DoNotOptimize(R = simpleAlgo(s, simdCheckIntrinsicsNeon));
   }
-  assert(R == simpleAlgo(s, simpleCheck));
+  assert(R == simpleAlgo(s, check));
   state.SetBytesProcessed(R * state.iterations());
 }
 
@@ -330,28 +310,26 @@ BENCHMARK(BM_isUniqueSimd_neon_intrinsics);
 
 #endif
 
+bool simdCheckSimdeAvx2(ArrayT const &s) {
+  alignas(32) constexpr static uint64_t Mask[] = {
+      0x0101010101010101, 0x0101010101010101, 0x0101010101010101,
+      0x0101010101010101};
 
-  bool simdCheckSimdeAvx2(ArrayT const &s) {
-    auto V1 = simde_mm256_loadu_si256(
-      reinterpret_cast<simde__m256i const *>(s.data()));
-    uint32_t Mask = 0x01010101;
-    auto MaskV = simde_mm256_broadcastd_epi32(simde_mm_loadu_si32(&Mask));
-    auto Result = !!simde_mm256_testc_si256(MaskV, V1);
+  auto V1 =
+      simde_mm256_loadu_si256(reinterpret_cast<simde__m256i const *>(s.data()));
+  auto MaskV =
+      simde_mm256_load_si256(reinterpret_cast<const simde__m256i *>(Mask));
+  auto Result = !!simde_mm256_testc_si256(MaskV, V1);
 
-    assert(Result == simpleCheck(s));
-    return Result;
-  }
+  assert(Result == simpleCheck(s));
+  return Result;
+}
 
-  void BM_isUniqueSimd_simde_avx2(benchmark::State &state) {
-    std::mt19937 rd(SEED);
-    auto s = genData(rd);
-    unsigned R = 0;
-    for (auto _ : state) {
-      benchmark::DoNotOptimize(R = simpleAlgo(s, simdCheckSimdeAvx2));
-    }
-    state.SetBytesProcessed(R * state.iterations());
-  }
+void BM_isUniqueSimd_simde_avx2(benchmark::State &state) {
+  doBenchmark(state,
+              [](auto &&str) { return simpleAlgo(str, simdCheckSimdeAvx2); });
+}
 
-  BENCHMARK(BM_isUniqueSimd_simde_avx2);
+BENCHMARK(BM_isUniqueSimd_simde_avx2);
 
 } // namespace

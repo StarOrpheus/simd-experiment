@@ -3,12 +3,11 @@ project(experimental-simd-benchmark)
 
 set(CMAKE_CXX_STANDARD 20)
 
-find_package(benchmark CONFIG REQUIRED)
+set(BENCHMARK_ENABLE_TESTING 0)
+set(BENCHMARK_ENABLE_GTEST_TESTS 0)
+add_subdirectory(benchmark-1.7.1)
 
-add_compile_options(-Wall -Wextra -pedantic -march=native)
-
-# enable if you have some
-# add_compile_options(-DENABLE_AVX_INTRINSICS_TEST -DENABLE_SSE_INTRINSICS_TEST)
+add_executable(gen_data generate_data.cpp)
 
 add_executable(main main.cpp)
 target_link_libraries(main PRIVATE benchmark::benchmark benchmark::benchmark_main)
