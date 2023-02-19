@@ -281,7 +281,7 @@ BENCHMARK(BM_isUniqueSimd_sse_intrinsics);
 #ifdef ENABLE_NEON_INTRINSICS_TEST
 
 bool simdCheckIntrinsicsNeon(ArrayT const &s) {
-  alignas(32) uint32_t Mask = 0xfe;
+  constexpr static uint8_t Mask = 0xfe;
 
   auto x = vld1q_u8(s.data());
   auto y = vld1q_u8(s.data() + 16);
@@ -296,14 +296,9 @@ bool simdCheckIntrinsicsNeon(ArrayT const &s) {
 }
 
 void BM_isUniqueSimd_neon_intrinsics(benchmark::State &state) {
-  std::mt19937 rd(SEED);
-  auto s = genData(rd);
-  unsigned R = simpleAlgo(s, simpleCheck);
-  for (auto _ : state) {
-    benchmark::DoNotOptimize(R = simpleAlgo(s, simdCheckIntrinsicsNeon));
-  }
-  assert(R == simpleAlgo(s, check));
-  state.SetBytesProcessed(R * state.iterations());
+  doBenchmark(state, [](auto &&str) {
+    return simpleAlgo(str, simdCheckIntrinsicsNeon);
+  });
 }
 
 BENCHMARK(BM_isUniqueSimd_neon_intrinsics);
