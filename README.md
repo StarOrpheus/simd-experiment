@@ -18,19 +18,6 @@ Task: for string S find first position, so next 14 symbols from this position in
 | BM_isUniqueSimd_sse_intrinsics          | 635244 ns | 634152 ns | 1029       | 197.093M/s      |
 | BM_isUniqueSimd_simde_avx2              | 696675 ns | 695728 ns | 984        | 179.649M/s      |
 
-## Apple MacBook Pro 14" M1 Pro 8C CPU, 14C GPU (128-bit NEON)
-
-| Benchmark                               | Time   | CPU    | Iterations | UserCounters... |
-|-----------------------------------------|--------|--------|------------|-----------------|
-| BM_isUniqueSimple                       | 749 ns | 749 ns | 928271     | 132.451M/s      |
-| BM_isUniqueSimd                         | 416 ns | 416 ns | 1684162    | 238.67M/s       |
-| BM_isUniqueSimd_vectorAligned           | 416 ns | 416 ns | 1684527    | 238.672M/s      |
-| BM_isUniqueSimd_overAligned             | 404 ns | 404 ns | 1732099    | 245.449M/s      |
-| BM_isUniqueSimd_singleSimd              | 563 ns | 563 ns | 1251363    | 176.258M/s      |
-| BM_isUniqueSimd_singleSimd_loopUnrolled | 500 ns | 500 ns | 1400451    | 198.561M/s      |
-| BM_isUniqueSimd_neon_intrinsics         | 226 ns | 226 ns | 3108058    | 439.404M/s      |
-| BM_isUniqueSimd_simde_avx2              | 218 ns | 218 ns | 3216040    | 455.573M/s      |
-
 #### GCC + stdlibc++
 
 | Benchmark                               | Time       | CPU        | Iterations | UserCounters... |
@@ -44,7 +31,6 @@ Task: for string S find first position, so next 14 symbols from this position in
 | BM_isUniqueSimd_avx256_intrinsics       | 711045 ns  | 710259 ns  | 944        | 175.973M/s      |
 | BM_isUniqueSimd_sse_intrinsics          | 841723 ns  | 840965 ns  | 781        | 148.623M/s      |
 | BM_isUniqueSimd_simde_avx2              | 703181 ns  | 702370 ns  | 909        | 177.95M/s       |
-
 
 ## Apple MacBook air 2022 M2
 
@@ -60,7 +46,7 @@ Task: for string S find first position, so next 14 symbols from this position in
 | BM_isUniqueSimd_simde_avx2              | 215076 ns | 215071 ns | 3252       | 581.141M/s      |
 
 
-## Apple MacBook Pro M1
+## Apple MacBook Pro 14" M1 Pro 8C CPU, 14C GPU (128-bit NEON)
 
 | Benchmark                               | Time      | CPU       | Iterations | UserCounters... |
 |-----------------------------------------|-----------|-----------|------------|-----------------|
