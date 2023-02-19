@@ -53,6 +53,46 @@ std::optional<std::string> loadData() {
   return std::nullopt;
 }
 
+template <typename CheckT>
+unsigned simpleAlgoUnrolled(std::string const &s, CheckT &&check) {
+  if (s.size() < BATCH)
+    return s.size() + 1;
+  alignas(32) std::array<uint8_t, 32> sum{};
+  std::fill(std::begin(sum), std::end(sum), 0);
+  for (size_t i = 0; i < BATCH; ++i)
+    sum[s[i] - 'a']++;
+  if (check(sum))
+    return 0;
+
+#define singleStep(m)                                                          \
+  do {                                                                         \
+    sum[s[i + m] - 'a']++;                                                     \
+    sum[s[i + m - BATCH] - 'a']--;                                             \
+    if (check(sum)) {                                                          \
+      return i + m - BATCH + 1;                                                \
+    }                                                                          \
+  } while (false)
+
+  size_t last = 0;
+  for (size_t i = BATCH; i + 7 < s.size(); i += 8) {
+    singleStep(0);
+    singleStep(1);
+    singleStep(2);
+    singleStep(3);
+    singleStep(4);
+    singleStep(5);
+    singleStep(6);
+    singleStep(7);
+    last = i + 8;
+  }
+
+  for (size_t i = last; i < s.size(); ++i) {
+    singleStep(0);
+  }
+#undef singleStep
+  return s.size() + 1;
+}
+
 #ifndef WIN32
 bool simdCheckO(ArrayT const &s, auto &&flag) {
   std::experimental::fixed_size_simd<uint8_t, 32> values;
@@ -191,6 +231,14 @@ void BM_isUniqueSimple(benchmark::State &state) {
 
 BENCHMARK(BM_isUniqueSimple);
 
+void BM_isUniqueSimple_unrolled(benchmark::State &state) {
+  doBenchmark(state, [](std::string const &str) {
+    return simpleAlgoUnrolled (str, simpleCheck);
+  });
+}
+
+BENCHMARK(BM_isUniqueSimple_unrolled);
+
 #ifndef WIN32
 void BM_isUniqueSimd(benchmark::State &state) {
   doBenchmark(
@@ -251,6 +299,14 @@ void BM_isUniqueSimd_avx256_intrinsics(benchmark::State &state) {
 }
 
 BENCHMARK(BM_isUniqueSimd_avx256_intrinsics);
+
+void BM_isUniqueSimd_avx256_intrinsics_unrolled(benchmark::State &state) {
+  doBenchmark(state, [](auto &&str) {
+    return simpleAlgoUnrolled(str, simdCheckIntrinsicsAVX);
+  });
+}
+
+BENCHMARK(BM_isUniqueSimd_avx256_intrinsics_unrolled);
 #endif
 
 #ifdef ENABLE_SSE_INTRINSICS_TEST
@@ -276,6 +332,14 @@ void BM_isUniqueSimd_sse_intrinsics(benchmark::State &state) {
 }
 
 BENCHMARK(BM_isUniqueSimd_sse_intrinsics);
+
+void BM_isUniqueSimd_sse_intrinsics_unrolled(benchmark::State &state) {
+  doBenchmark(state, [](auto &&str) {
+    return simpleAlgoUnrolled(str, simdCheckIntrinsicsSSE);
+  });
+}
+
+BENCHMARK(BM_isUniqueSimd_sse_intrinsics_unrolled);
 #endif
 
 #ifdef ENABLE_NEON_INTRINSICS_TEST
@@ -303,6 +367,14 @@ void BM_isUniqueSimd_neon_intrinsics(benchmark::State &state) {
 
 BENCHMARK(BM_isUniqueSimd_neon_intrinsics);
 
+void BM_isUniqueSimd_neon_intrinsics_unrolled(benchmark::State &state) {
+  doBenchmark(state, [](auto &&str) {
+    return simpleAlgoUnrolled(str, simdCheckIntrinsicsNeon);
+  });
+}
+
+BENCHMARK(BM_isUniqueSimd_neon_intrinsics_unrolled);
+
 #endif
 
 bool simdCheckSimdeAvx2(ArrayT const &s) {
@@ -326,5 +398,12 @@ void BM_isUniqueSimd_simde_avx2(benchmark::State &state) {
 }
 
 BENCHMARK(BM_isUniqueSimd_simde_avx2);
+
+void BM_isUniqueSimd_simde_avx2_unrolled(benchmark::State &state) {
+  doBenchmark(state,
+              [](auto &&str) { return simpleAlgoUnrolled(str, simdCheckSimdeAvx2); });
+}
+
+BENCHMARK(BM_isUniqueSimd_simde_avx2_unrolled);
 
 } // namespace
