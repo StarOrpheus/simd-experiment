@@ -35,7 +35,7 @@
 
 namespace {
 
-std::optional<std::string> loadData() {
+[[nodiscard]] std::optional<std::string> loadData() noexcept {
   std::ifstream in;
   in.exceptions(std::ifstream::badbit | std::ifstream::failbit);
   std::string R;
@@ -54,7 +54,8 @@ std::optional<std::string> loadData() {
 }
 
 template <typename CheckT>
-unsigned simpleAlgoUnrolled(std::string const &s, CheckT &&check) {
+[[nodiscard]] constexpr unsigned simpleAlgoUnrolled(std::string const &s,
+                                                    CheckT &&check) noexcept {
   if (s.size() < BATCH)
     return s.size() + 1;
   alignas(32) std::array<uint8_t, 32> sum{};
@@ -94,7 +95,7 @@ unsigned simpleAlgoUnrolled(std::string const &s, CheckT &&check) {
 }
 
 #ifndef WIN32
-bool simdCheckO(ArrayT const &s, auto &&flag) {
+[[nodiscard]] constexpr bool simdCheckO(ArrayT const &s, auto &&flag) noexcept {
   std::experimental::fixed_size_simd<uint8_t, 32> values;
   values.copy_from(s.data(), flag);
   uint8_t mask = 0xfe;
@@ -109,20 +110,21 @@ bool simdCheckO(ArrayT const &s, auto &&flag) {
   return true;
 }
 
-bool simdCheck(ArrayT const &s) {
+[[nodiscard]] constexpr bool simdCheck(ArrayT const &s) noexcept {
   return simdCheckO(s, std::experimental::element_aligned);
 }
 
-bool simdCheckVectorAligned(ArrayT const &s) {
+[[nodiscard]] constexpr bool simdCheckVectorAligned(ArrayT const &s) noexcept {
   return simdCheckO(s, std::experimental::vector_aligned);
 }
 
-bool simdCheckOverAligned(ArrayT const &s) {
+[[nodiscard]] constexpr bool simdCheckOverAligned(ArrayT const &s) noexcept {
   return simdCheckO(s, std::experimental::overaligned<32>);
 }
 #endif
 
-template <typename F> void doBenchmark(benchmark::State &state, F &&func) {
+template <typename F>
+void doBenchmark(benchmark::State &state, F const &func) noexcept {
   auto s = loadData();
   if (!s) {
     state.SetLabel("NO DATA");
@@ -130,7 +132,7 @@ template <typename F> void doBenchmark(benchmark::State &state, F &&func) {
   }
   auto &str = *s;
   unsigned R = 0xfefefefe;
-  for (auto _ : state) {
+  for ([[maybe_unused]] auto &&_ : state) {
     benchmark::DoNotOptimize(R = func(str));
   }
   assert(R == simpleAlgo(str, simpleCheck));
@@ -138,7 +140,7 @@ template <typename F> void doBenchmark(benchmark::State &state, F &&func) {
 }
 
 #ifndef WIN32
-unsigned simdAlgo(std::string const &s) {
+[[nodiscard]] constexpr unsigned simdAlgo(std::string const &s) noexcept {
   std::experimental::fixed_size_simd<uint8_t, 26> vu;
 
   for (size_t i = 0; i < vu.size(); ++i)
@@ -170,7 +172,8 @@ unsigned simdAlgo(std::string const &s) {
   return s.size() + 1;
 }
 
-unsigned simdAlgoUnrolled(std::string const &s) {
+[[nodiscard]] constexpr unsigned
+simdAlgoUnrolled(std::string const &s) noexcept {
   std::experimental::fixed_size_simd<uint8_t, 26> vu;
 
   if (s.size() < BATCH)
@@ -233,7 +236,7 @@ BENCHMARK(BM_isUniqueSimple);
 
 void BM_isUniqueSimple_unrolled(benchmark::State &state) {
   doBenchmark(state, [](std::string const &str) {
-    return simpleAlgoUnrolled (str, simpleCheck);
+    return simpleAlgoUnrolled(str, simpleCheck);
   });
 }
 
@@ -279,7 +282,7 @@ BENCHMARK(BM_isUniqueSimd_singleSimd_loopUnrolled);
 #endif
 
 #ifdef ENABLE_AVX_INTRINSICS_TEST
-bool simdCheckIntrinsicsAVX(ArrayT const &s) {
+[[nodiscard]] bool simdCheckIntrinsicsAVX(ArrayT const &s) noexcept {
   alignas(32) constexpr static uint64_t Mask[] = {
       0x0101010101010101, 0x0101010101010101, 0x0101010101010101,
       0x0101010101010101};
@@ -310,7 +313,7 @@ BENCHMARK(BM_isUniqueSimd_avx256_intrinsics_unrolled);
 #endif
 
 #ifdef ENABLE_SSE_INTRINSICS_TEST
-bool simdCheckIntrinsicsSSE(ArrayT const &s) {
+[[nodiscard]] bool simdCheckIntrinsicsSSE(ArrayT const &s) noexcept {
   alignas(16) constexpr static uint64_t Mask[] = {0x0101010101010101,
                                                   0x0101010101010101};
 
@@ -344,7 +347,7 @@ BENCHMARK(BM_isUniqueSimd_sse_intrinsics_unrolled);
 
 #ifdef ENABLE_NEON_INTRINSICS_TEST
 
-bool simdCheckIntrinsicsNeon(ArrayT const &s) {
+[[nodiscard]] bool simdCheckIntrinsicsNeon(ArrayT const &s) noexcept {
   constexpr static uint8_t Mask = 0xfe;
 
   auto x = vld1q_u8(s.data());
@@ -359,7 +362,7 @@ bool simdCheckIntrinsicsNeon(ArrayT const &s) {
   return R;
 }
 
-void BM_isUniqueSimd_neon_intrinsics(benchmark::State &state) {
+void BM_isUniqueSimd_neon_intrinsics(benchmark::State &state) noexcept {
   doBenchmark(state, [](auto &&str) {
     return simpleAlgo(str, simdCheckIntrinsicsNeon);
   });
@@ -367,7 +370,8 @@ void BM_isUniqueSimd_neon_intrinsics(benchmark::State &state) {
 
 BENCHMARK(BM_isUniqueSimd_neon_intrinsics);
 
-void BM_isUniqueSimd_neon_intrinsics_unrolled(benchmark::State &state) {
+void BM_isUniqueSimd_neon_intrinsics_unrolled(
+    benchmark::State &state) noexcept {
   doBenchmark(state, [](auto &&str) {
     return simpleAlgoUnrolled(str, simdCheckIntrinsicsNeon);
   });
@@ -377,7 +381,7 @@ BENCHMARK(BM_isUniqueSimd_neon_intrinsics_unrolled);
 
 #endif
 
-bool simdCheckSimdeAvx2(ArrayT const &s) {
+[[nodiscard]] bool simdCheckSimdeAvx2(ArrayT const &s) noexcept {
   alignas(32) constexpr static uint64_t Mask[] = {
       0x0101010101010101, 0x0101010101010101, 0x0101010101010101,
       0x0101010101010101};
@@ -392,16 +396,17 @@ bool simdCheckSimdeAvx2(ArrayT const &s) {
   return Result;
 }
 
-void BM_isUniqueSimd_simde_avx2(benchmark::State &state) {
+void BM_isUniqueSimd_simde_avx2(benchmark::State &state) noexcept {
   doBenchmark(state,
               [](auto &&str) { return simpleAlgo(str, simdCheckSimdeAvx2); });
 }
 
 BENCHMARK(BM_isUniqueSimd_simde_avx2);
 
-void BM_isUniqueSimd_simde_avx2_unrolled(benchmark::State &state) {
-  doBenchmark(state,
-              [](auto &&str) { return simpleAlgoUnrolled(str, simdCheckSimdeAvx2); });
+void BM_isUniqueSimd_simde_avx2_unrolled(benchmark::State &state) noexcept {
+  doBenchmark(state, [](auto &&str) {
+    return simpleAlgoUnrolled(str, simdCheckSimdeAvx2);
+  });
 }
 
 BENCHMARK(BM_isUniqueSimd_simde_avx2_unrolled);
