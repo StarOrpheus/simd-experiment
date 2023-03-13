@@ -2,6 +2,25 @@
 
 Task: for string S find first position, so next 14 symbols from this position in string S are **unique**.
 
+## Benchmark description
+| Benchmark                                  | Desciption                                                                                                            |
+|--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| BM_isUniqueSimple                          | Naive implementation, often well-optimized by compilers as is                                                         |
+| BM_isUniqueSimple_unrolled                 | Same algo with explicit main loop unrolling                                                                           | 
+| BM_isUniqueSimd                            | Naive implementation with `std::experimental::simd`                                                                   | 
+| BM_isUniqueSimd_vectorAligned              | Same algo, but uses `std::experimental::vector_aligned`                                                               |
+| BM_isUniqueSimd_overAligned                | Same algo, but uses `std::experimental::over_aligned`                                                                 |
+| BM_isUniqueSimd_singleSimd                 | Uses single `std::experimental::simd` variable as array during                                                        | 
+| BM_isUniqueSimd_singleSimd_loopUnrolled    | Same algo, main loop unrolled                                                                                         |
+| BM_isUniqueSimd_avx256_intrinsics          | Simple algo that uses check-function written on **AVX2** intrinsics                                                   |
+| BM_isUniqueSimd_avx256_intrinsics_unrolled | Same algo, main loop unrolled                                                                                         | 
+| BM_isUniqueSimd_sse_intrinsics             | Simple algo that uses check-function written on **SSE** intrinsics                                                    | 
+| BM_isUniqueSimd_sse_intrinsics_unrolled    | Same algo, main loop unrolled                                                                                         |
+| BM_isUniqueSimd_neon_intrinsics            | Simple algo that uses check-function written on **NEON** intrinsics                                                   |
+| BM_isUniqueSimd_simde_avx2                 | Uses [simde](https://github.com/simd-everywhere/simde) -- a cross-platform implementaion of avx2, avx, sse intrinsics | 
+| BM_isUniqueSimd_simde_avx2_unrolled        | Same algo, main loop unrolled                                                                                         |
+
+
 ## Dell XPS 9980HK
 
 #### clang + libc++
